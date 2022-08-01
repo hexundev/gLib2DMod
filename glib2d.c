@@ -40,7 +40,7 @@
 #define LINE_SIZE               (512)
 #define PIXEL_SIZE              (4)
 #define FRAMEBUFFER_SIZE        (LINE_SIZE*G2D_SCR_H*PIXEL_SIZE)
-#define MALLOC_STEP             (128)
+//#define MALLOC_STEP           (128) // It's a variable now
 #define TSTACK_MAX              (64)
 #define SLICE_WIDTH             (64.f)
 #define M_180_PI                (57.29578f)
@@ -48,10 +48,11 @@
 
 #define DEFAULT_SIZE            (10)
 #define DEFAULT_COORD_MODE      (G2D_UP_LEFT)
+#define DEFAULT_BLEND_MODE      (G2D_BLEND_ALPHA)
 #define DEFAULT_X               (0.f)
 #define DEFAULT_Y               (0.f)
 #define DEFAULT_Z               (0.f)
-#define DEFAULT_COLOR           (WHITE)
+#define DEFAULT_COLOR           (G2D_COL_WHITE)
 #define DEFAULT_ALPHA           (0xFF)
 
 #define OBJ                     rctx.obj[rctx.n-1]
@@ -74,22 +75,11 @@ typedef struct
     float scale_w, scale_h;
 } Transform;
 
-typedef struct
-{
-    float x, y, z;
-    float rot_x, rot_y; // Rotation center
-    float rot, rot_sin, rot_cos;
-    int crop_x, crop_y;
-    int crop_w, crop_h;
-    float scale_w, scale_h;
-    g2dColor color;
-    g2dAlpha alpha;
-} Object;
 
 typedef struct
 {
-    Object *obj;
-    Object cur_obj;
+    g2dObject *obj; // Array of MALLOC_STEP g2dObjects
+    g2dObject cur_obj;
     unsigned int n;
     Obj_Type type;
     g2dTexture *tex;
@@ -103,6 +93,7 @@ typedef struct
     bool use_int;
     unsigned int color_count;
     g2dCoord_Mode coord_mode;
+    g2dBlend_Mode blend_mode;
 } RenderContext;
 
 /* Local variables */
@@ -121,6 +112,8 @@ static bool zclear = true;
 static bool scissor = false;
 
 static float global_scale;
+
+static unsigned int MALLOC_STEP = G2D_OBJECT_POOL_SIZE;
 
 /* Global variables */
 
@@ -230,6 +223,11 @@ void vfpu_sincosf(float x, float *s, float *c)
 
 void g2dInit()
 {
+    g2dInitWithPool(G2D_OBJECT_POOL_SIZE);
+}
+
+void g2dInitWithPool(unsigned int objectPoolSize)
+{
     if (init)
         return;
 
@@ -322,7 +320,7 @@ void _g2dBeginCommon(Obj_Type type, g2dTexture *tex)
         _g2dStart();
 
     // Reset render context
-    rctx.obj = realloc(rctx.obj, MALLOC_STEP * sizeof(Object));
+    rctx.obj = realloc(rctx.obj, MALLOC_STEP * sizeof(g2dObject));
     rctx.n = 0;
     rctx.type = type;
     rctx.tex = tex;
@@ -335,6 +333,7 @@ void _g2dBeginCommon(Obj_Type type, g2dTexture *tex)
     rctx.use_int = false;
     rctx.color_count = 0;
     rctx.coord_mode = DEFAULT_COORD_MODE;
+    rctx.blend_mode = DEFAULT_BLEND_MODE;
     
     // Reset current object
     g2dReset();
@@ -551,6 +550,28 @@ void _g2dEndPoints()
     sceGuDrawArray(v_prim, v_type, v_nbr, NULL, v);
 }
 
+void _g2dSetTextureState(g2dTexture* tex, bool useLinearFilter, bool useTexRepeat)
+{
+    if (tex == NULL)
+    {
+        sceGuDisable(GU_TEXTURE_2D);
+    }
+    else
+    {
+        sceGuEnable(GU_TEXTURE_2D);
+
+        if (useLinearFilter) sceGuTexFilter(GU_LINEAR, GU_LINEAR);
+        else                 sceGuTexFilter(GU_NEAREST, GU_NEAREST);
+
+        if (useTexRepeat)   sceGuTexWrap(GU_REPEAT, GU_REPEAT);
+        else                sceGuTexWrap(GU_CLAMP, GU_CLAMP);
+
+        // Load texture
+        sceGuTexMode(GU_PSM_8888, 0, 0, tex->swizzled);
+        sceGuTexImage(0, tex->tw, tex->th,
+            tex->tw, tex->data);
+    }
+}
 
 void g2dEnd()
 {
@@ -568,28 +589,14 @@ void g2dEnd()
         sceGuDisable(GU_DEPTH_TEST);
 
     if (rctx.use_vert_color)
-        sceGuColor(WHITE);
+        sceGuColor(G2D_COL_WHITE);
     else
         sceGuColor(rctx.cur_obj.color);
 
-    if (rctx.tex == NULL)
-        sceGuDisable(GU_TEXTURE_2D);
-    else
-    {
-        sceGuEnable(GU_TEXTURE_2D);
+    // Set texture state
+    _g2dSetTextureState(rctx.tex, rctx.use_tex_linear, rctx.use_tex_repeat);
 
-        if (rctx.use_tex_linear) sceGuTexFilter(GU_LINEAR, GU_LINEAR);
-        else                     sceGuTexFilter(GU_NEAREST, GU_NEAREST);
-
-        if (rctx.use_tex_repeat) sceGuTexWrap(GU_REPEAT, GU_REPEAT);
-        else                     sceGuTexWrap(GU_CLAMP, GU_CLAMP);
-
-        // Load texture
-        sceGuTexMode(GU_PSM_8888, 0, 0, rctx.tex->swizzled);
-        sceGuTexImage(0, rctx.tex->tw, rctx.tex->th,
-                      rctx.tex->tw, rctx.tex->data);
-    }
-
+    // Draw
     switch (rctx.type)
     {
         case RECTS:
@@ -609,7 +616,8 @@ void g2dEnd()
             break;
     }
 
-    sceGuColor(WHITE);
+    // End
+    sceGuColor(G2D_COL_WHITE);
 
     if (rctx.use_z)
         zclear = true;
@@ -624,9 +632,10 @@ void g2dReset()
     g2dResetScale();
     g2dResetColor();
     g2dResetAlpha();
+    g2dResetBlendMode();
     g2dResetRotation();
     g2dResetCrop();
-    g2dResetTex();
+    g2dResetTex();    
 }
 
 
@@ -656,39 +665,39 @@ void g2dAdd()
     if (rctx.n % MALLOC_STEP == 0)
     {
         rctx.obj = realloc(rctx.obj,
-                           (rctx.n+MALLOC_STEP) * sizeof(Object));
+            (rctx.n + MALLOC_STEP) * sizeof(g2dObject));
     }
-    
+
     rctx.n++;
     OBJ = rctx.cur_obj;
 
     // Coordinate mode stuff
     OBJ.rot_x = OBJ.x;
     OBJ.rot_y = OBJ.y;
-    
+
     switch (rctx.coord_mode)
     {
-        case G2D_UP_RIGHT:
-            OBJ.x -= OBJ.scale_w;
-            break;
+    case G2D_UP_RIGHT:
+        OBJ.x -= OBJ.scale_w;
+        break;
 
-        case G2D_DOWN_RIGHT:
-            OBJ.x -= OBJ.scale_w;
-            OBJ.y -= OBJ.scale_h;
-            break;
+    case G2D_DOWN_RIGHT:
+        OBJ.x -= OBJ.scale_w;
+        OBJ.y -= OBJ.scale_h;
+        break;
 
-        case G2D_DOWN_LEFT:
-            OBJ.y -= OBJ.scale_h;
-            break;
+    case G2D_DOWN_LEFT:
+        OBJ.y -= OBJ.scale_h;
+        break;
 
-        case G2D_CENTER:
-            OBJ.x -= OBJ.scale_w / 2.f;
-            OBJ.y -= OBJ.scale_h / 2.f;
-            break;
-            
-        case G2D_UP_LEFT:
-        default:
-            break;
+    case G2D_CENTER:
+        OBJ.x -= OBJ.scale_w / 2.f;
+        OBJ.y -= OBJ.scale_h / 2.f;
+        break;
+
+    case G2D_UP_LEFT:
+    default:
+        break;
     };
 
     // Alpha stuff
@@ -967,6 +976,19 @@ void g2dGetRotation(float *degrees)
 }
 
 
+void _g2dSetObjectRotationRad(g2dObject* obj, float radians)
+{
+    obj->rot = radians;
+    obj->rot_x = obj->x;
+    obj->rot_y = obj->y;
+
+#ifdef USE_VFPU
+    vfpu_sincosf(radians, &obj->rot_sin, &obj->rot_cos);
+#else
+    sincosf(radians, &obj->rot_sin, &obj->rot_cos);
+#endif
+}
+
 void g2dSetRotationRad(float radians)
 {
     if (radians == rctx.cur_obj.rot)
@@ -974,14 +996,12 @@ void g2dSetRotationRad(float radians)
 
     rctx.cur_obj.rot = radians;
 
-#ifdef USE_VFPU
-    vfpu_sincosf(radians, &rctx.cur_obj.rot_sin, &rctx.cur_obj.rot_cos);
-#else
-    sincosf(radians, &rctx.cur_obj.rot_sin, &rctx.cur_obj.rot_cos);
-#endif
+    _g2dSetObjectRotationRad(&rctx.cur_obj, radians);
 
     if (radians != 0.f)
+    {
         rctx.use_rot = true;
+    }
 }
 
 
@@ -1147,7 +1167,7 @@ void _swizzle(unsigned char *dest, unsigned char *source, int width, int height)
 }
 
 
-g2dTexture*g2dTexCreate(int w, int h)
+g2dTexture* g2dTexCreate(int w, int h)
 {
     g2dTexture *tex = malloc(sizeof(g2dTexture));
     if (tex == NULL)
@@ -1384,6 +1404,193 @@ void g2dSetScissor(int x, int y, int w, int h)
     sceGuScissor(x, y, x+w, y+h);
 
     scissor = true;
+}
+
+
+/* New additions */
+
+
+/* Blend functions */
+
+void g2dSetBlendMode(g2dBlend_Mode blendMode)
+{
+    rctx.blend_mode = blendMode;
+
+    switch (blendMode)
+    {
+    case G2D_BLEND_NONE:
+        sceGuDisable(GU_BLEND);
+        break;
+
+    case G2D_BLEND_ALPHA:
+        sceGuEnable(GU_BLEND);
+        sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
+        break;
+
+    case G2D_BLEND_ADD:
+        sceGuEnable(GU_BLEND);
+        sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_FIX, 0, 0xFFFFFF);
+        break;
+
+    default:
+        break;    
+    }
+}
+
+void g2dGetBlendMode(g2dBlend_Mode* blendMode)
+{
+    *blendMode = rctx.blend_mode;
+}
+
+void g2dResetBlendMode()
+{
+    g2dSetBlendMode(DEFAULT_BLEND_MODE);
+}
+
+/* Object functions */
+
+void g2dInitObject(g2dObject* object)
+{    
+    object->x = DEFAULT_X;
+    object->y = DEFAULT_Y;
+    object->z = DEFAULT_Z;
+    object->center_x = 0.0f;
+    object->center_y = 0.0f;
+    object->rot_x = object->rot_y = 0; // Rotation center
+    object->rot = 0.0f;
+    object->rot_sin = 0.0f;
+    object->rot_cos = 1.0f;
+    object->crop_x = object->crop_y= 0;
+    object->crop_w = object->crop_h = DEFAULT_SIZE;
+    object->scale_w = DEFAULT_SIZE;
+    object->scale_h = DEFAULT_SIZE;
+    object->color = DEFAULT_COLOR;
+    object->alpha = DEFAULT_ALPHA;
+}
+
+void g2dSetObjectRadians(g2dObject* object, float radians)
+{    
+    _g2dSetObjectRotationRad(object, radians);
+}
+
+void g2dSetObjectRotation(g2dObject* object, float degrees)
+{
+    _g2dSetObjectRotationRad(object, degrees * M_PI_180);
+}
+
+void g2dDrawObject(g2dObject* object, g2dTexture* texture, g2dBlend_Mode blendMode)
+{
+    g2dDrawObjects(object, 1, texture, blendMode);
+}
+
+#define OBJ_I_TRI objects[i]
+void* _g2dSetObjVertex(void* vp, g2dObject* objects, int i, float vx, float vy, bool useTexture, bool useVertexColor)
+{
+    // Vertex order: [texture uv] [color] [coord]
+    short* vp_short;
+    g2dColor* vp_color;
+    float* vp_float;
+
+    // Texture coordinates
+    vp_short = (short*)vp;
+
+    if (useTexture)
+    {
+        *(vp_short++) = OBJ_I_TRI.crop_x + vx * OBJ_I_TRI.crop_w;
+        *(vp_short++) = OBJ_I_TRI.crop_y + vy * OBJ_I_TRI.crop_h;
+    }
+
+    // Color
+    vp_color = (g2dColor*)vp_short;
+
+    if (useVertexColor)
+    {
+        *(vp_color++) = OBJ_I_TRI.color;
+    }
+
+    // Coordinates
+    vp_float = (float*)vp_color;
+
+    vp_float[0] = OBJ_I_TRI.x - OBJ_I_TRI.center_x * OBJ_I_TRI.scale_w;
+    vp_float[1] = OBJ_I_TRI.y - OBJ_I_TRI.center_y * OBJ_I_TRI.scale_h;
+
+    // Rects    
+    vp_float[0] += vx * OBJ_I_TRI.scale_w;
+    vp_float[1] += vy * OBJ_I_TRI.scale_h;
+
+    // Apply a rotation
+    {
+        float tx = vp_float[0] - OBJ_I_TRI.rot_x;
+        float ty = vp_float[1] - OBJ_I_TRI.rot_y;
+
+        vp_float[0] = OBJ_I_TRI.rot_x - OBJ_I_TRI.rot_sin * ty + OBJ_I_TRI.rot_cos * tx;
+        vp_float[1] = OBJ_I_TRI.rot_y + OBJ_I_TRI.rot_cos * ty + OBJ_I_TRI.rot_sin * tx;
+    }    
+
+    if (rctx.use_int) // Pixel perfect
+    {
+        vp_float[0] = floorf(vp_float[0]);
+        vp_float[1] = floorf(vp_float[1]);
+    }
+    vp_float[2] = OBJ_I_TRI.z;
+
+    return (void*)(vp_float + 3);
+}
+
+void _g2dDrawObjTriangles(g2dObject* objects, int objCount, bool useTexture, bool useVertexColor)
+{
+    // Define vertices properties
+    int v_prim = GU_TRIANGLES; 
+    int v_obj_nbr = 6; // 2 tris
+    int v_nbr;
+    int v_coord_size = 3;
+    int v_tex_size = (rctx.tex != NULL ? 2 : 0);
+    int v_color_size = (rctx.use_vert_color ? 1 : 0);
+    int v_size = v_tex_size * sizeof(short) +
+        v_color_size * sizeof(g2dColor) +
+        v_coord_size * sizeof(float);
+    int v_type = GU_VERTEX_32BITF | GU_TRANSFORM_2D;
+    int i;
+
+    if (useTexture)     v_type |= GU_TEXTURE_16BIT;
+    if (useVertexColor) v_type |= GU_COLOR_8888;
+
+    // Count how many vertices to allocate.
+    v_nbr = v_obj_nbr * objCount;// No slicing
+   
+    // Allocate vertex list memory
+    void* v = sceGuGetMemory(v_nbr * v_size);
+    void* vi = v;
+
+    // Build the vertex list
+    for (i = 0; i < objCount; i += 1)
+    {
+        // Two triangles per object       
+        vi = _g2dSetObjVertex(vi, objects, i, 0.f, 0.f, useTexture, useVertexColor);
+        vi = _g2dSetObjVertex(vi, objects, i, 1.f, 0.f, useTexture, useVertexColor);
+        vi = _g2dSetObjVertex(vi, objects, i, 0.f, 1.f, useTexture, useVertexColor);
+
+        vi = _g2dSetObjVertex(vi, objects, i, 0.f, 1.f, useTexture, useVertexColor);
+        vi = _g2dSetObjVertex(vi, objects, i, 1.f, 0.f, useTexture, useVertexColor);
+        vi = _g2dSetObjVertex(vi, objects, i, 1.f, 1.f, useTexture, useVertexColor);
+    }
+
+    // Then put it in the display list.
+    sceGuDrawArray(v_prim, v_type, v_nbr, NULL, v);
+}
+
+void g2dDrawObjects(g2dObject* objects, int count, g2dTexture* texture, g2dBlend_Mode blendMode)
+{
+    // Set render states
+    sceGuColor(G2D_COL_WHITE);
+    sceGuDisable(GU_DEPTH_TEST);
+    _g2dSetTextureState(texture, rctx.use_tex_linear, rctx.use_tex_repeat);
+
+    // Draw
+    _g2dDrawObjTriangles(objects, count, (texture != NULL), true);
+
+    // End
+    sceGuColor(G2D_COL_WHITE);
 }
 
 // EOF

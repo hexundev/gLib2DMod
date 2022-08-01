@@ -99,6 +99,13 @@ extern "C" {
 #define G2D_SCR_H (272)
 #define G2D_VOID (0)
 
+
+/**
+* Max size supported by the PSP
+*/
+#define GD2_TEXTURE_MAX_WIDTH (512)
+#define GD2_TEXTURE_MAX_HEIGHT (512)
+
 /**
  * \def G2D_RGBA(r,g,b,a)
  * \brief Create a g2dColor.
@@ -142,6 +149,14 @@ extern "C" {
              (int)(luminance) * G2D_GET_B(color) / 255, \
              (int)(alpha    ) * G2D_GET_A(color) / 255)
 
+
+/**
+* \enum G2D_OBJECT_POOL_SIZE
+* \brief Object pool size for storing calls to g2dAdd()
+*
+*/
+#define G2D_OBJECT_POOL_SIZE (128)
+
 /**
  * \enum g2dColors
  * \brief Colors enumeration.
@@ -151,26 +166,26 @@ extern "C" {
 enum g2dColors
 {
     // Primary colors
-    RED             = 0xFF0000FF,
-    GREEN           = 0xFF00FF00,
-    BLUE            = 0xFFFF0000,
+    G2D_COL_RED             = 0xFF0000FF,
+    G2D_COL_GREEN           = 0xFF00FF00,
+    G2D_COL_BLUE            = 0xFFFF0000,
     // Secondary colors
-    CYAN            = 0xFFFFFF00,
-    MAGENTA         = 0xFFFF00FF,
-    YELLOW          = 0xFF00FFFF,
+    G2D_COL_CYAN            = 0xFFFFFF00,
+    G2D_COL_MAGENTA         = 0xFFFF00FF,
+    G2D_COL_YELLOW          = 0xFF00FFFF,
     // Tertiary colors
-    AZURE           = 0xFFFF7F00,
-    VIOLET          = 0xFFFF007F,
-    ROSE            = 0xFF7F00FF,
-    ORANGE          = 0xFF007FFF,
-    CHARTREUSE      = 0xFF00FF7F,
-    SPRING_GREEN    = 0xFF7FFF00,
+    G2D_COL_AZURE           = 0xFFFF7F00,
+    G2D_COL_VIOLET          = 0xFFFF007F,
+    G2D_COL_ROSE            = 0xFF7F00FF,
+    G2D_COL_ORANGE          = 0xFF007FFF,
+    G2D_COL_CHARTREUSE      = 0xFF00FF7F,
+    G2D_COL_SPRING_GREEN    = 0xFF7FFF00,
     // Grayscale
-    WHITE           = 0xFFFFFFFF,
-    LITEGRAY        = 0xFFBFBFBF,
-    GRAY            = 0xFF7F7F7F,
-    DARKGRAY        = 0xFF3F3F3F,
-    BLACK           = 0xFF000000
+    G2D_COL_WHITE           = 0xFFFFFFFF,
+    G2D_COL_LITEGRAY        = 0xFFBFBFBF,
+    G2D_COL_GRAY            = 0xFF7F7F7F,
+    G2D_COL_DARKGRAY        = 0xFF3F3F3F,
+    G2D_COL_BLACK           = 0xFF000000
 };
 
 /**
@@ -223,6 +238,14 @@ typedef enum
     G2D_SWIZZLE = 1 /**< Recommended. Use it to speedup rendering. */
 } g2dTex_Mode;
 
+typedef enum
+{
+    G2D_BLEND_NONE,
+    G2D_BLEND_ALPHA, 
+    G2D_BLEND_ADD,
+}
+g2dBlend_Mode;
+
 /**
  * \var g2dAlpha
  * \brief Alpha type.
@@ -260,13 +283,42 @@ typedef struct
 extern g2dTexture g2d_draw_buffer;
 extern g2dTexture g2d_disp_buffer;
 
+
+/**
+ * \struct g2dObject
+ * \brief Stores the object state
+ */
+typedef struct
+{
+    float x, y, z;
+    float rot_x, rot_y; // Rotation center
+    float rot, rot_sin, rot_cos;
+    float center_x, center_y;
+    int crop_x, crop_y;
+    int crop_w, crop_h;
+    float scale_w, scale_h;    
+    g2dColor color;
+    g2dAlpha alpha;
+} g2dObject;
+
+
 /**
  * \brief Initializes the library.
  *
  * This function will create a GU context and setup the display buffers.
  * Automatically called by the other functions.
+ * 
+ * Initializes the object pool to G2D_OBJECT_POOL_SIZE
  */
 void g2dInit();
+
+
+/**
+ * \brief Initializes the library.
+ *
+ * Same as g2dInit but you can specify a pool size.
+ */
+void g2dInitWithPool(unsigned int objectPoolSize);
 
 /**
  * \brief Shutdowns the library.
@@ -605,6 +657,7 @@ void g2dResetAlpha();
  */
 void g2dGetAlpha(g2dAlpha *alpha);
 
+
 /**
  * \brief Sets the new color.
  * @param color The new color.
@@ -791,6 +844,7 @@ void g2dSetTexRepeat(bool use);
  */
 void g2dSetTexLinear(bool use);
 
+
 /**
  * \brief Resets the draw zone to the entire screen.
  *
@@ -809,6 +863,25 @@ void g2dResetScissor();
  * Pixel draw will be skipped outside this rectangle.
  */
 void g2dSetScissor(int x, int y, int w, int h);
+
+
+/* New additions */
+
+void g2dSetBlendMode(g2dBlend_Mode blendMode);
+
+void g2dGetBlendMode(g2dBlend_Mode* blendMode);
+
+void g2dResetBlendMode();
+
+void g2dInitObject(g2dObject* object);
+
+void g2dSetObjectRadians(g2dObject* object, float radians);
+
+void g2dSetObjectRotation(g2dObject* object, float degrees);
+
+void g2dDrawObject(g2dObject* object, g2dTexture* texture, g2dBlend_Mode blendMode);
+
+void g2dDrawObjects(g2dObject* object, int count, g2dTexture* texture, g2dBlend_Mode blendMode);
 
 #ifdef __cplusplus
 }
