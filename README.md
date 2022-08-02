@@ -1,8 +1,7 @@
-This mod adds a couple of things and exposes some functions.
-
 ## gLib2DExt
 
 Some functions to extend gLib2D, lets set a view matrix for scrolling and zooming.
+Todo: Support perspective projection, better vertex handling and use different format for untextured.
 
 ## Changes to gLib2D
 
