@@ -1,3 +1,11 @@
+# Changes
+
+- Added function to set blend modes
+- Renamed color enum values
+- Exposed object struct and functions to draw them directly
+
+# Original Readme
+
 * Introduction *
 
 gLib2D by Geecko - A simple, fast, light-weight 2D graphics library.
