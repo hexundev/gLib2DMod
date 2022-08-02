@@ -1408,6 +1408,68 @@ void g2dSetScissor(int x, int y, int w, int h)
 
 /* New additions */
 
+g2dTexture* g2dTexLoadSwizzled(char path[])
+{
+    g2dTexture* tex = NULL;
+    FILE* fp = NULL;
+
+    if (path == NULL)
+        return NULL;
+
+    if ((fp = fopen(path, "rb")) == NULL)
+        return NULL;
+
+    int tw, th;
+    fread(&tw, sizeof(int), 1, fp);
+    fread(&th, sizeof(int), 1, fp);
+
+    tex = g2dTexCreate(tw, th);
+    if (tex == NULL)
+    {
+        fclose(fp);
+        return NULL;
+    }
+    
+    tex->tw = tw;   
+    tex->th = th;
+
+    fread(&tex->w, sizeof(int), 1, fp);
+    fread(&tex->h, sizeof(int), 1, fp);
+    fread(&tex->ratio, sizeof(float), 1, fp);
+    fread(&tex->swizzled, sizeof(bool), 1, fp);
+    fread(tex->data, sizeof(g2dColor), tex->tw * tex->th, fp);
+    fclose(fp);
+
+    return tex;
+}
+
+#ifdef USE_TEX_OUTPUT
+
+bool g2dTexSaveSwizzled(char path[], g2dTexture* tex)
+{
+    if (path == NULL || tex == NULL || !tex->swizzled)
+        return false;
+
+    FILE* fp = fopen(path, "wb");
+    if (fp == NULL)
+        return false;
+
+    fwrite(&tex->tw, sizeof(int), 1, fp);
+    fwrite(&tex->th, sizeof(int), 1, fp);
+    fwrite(&tex->w, sizeof(int), 1, fp);
+    fwrite(&tex->h, sizeof(int), 1, fp);
+    fwrite(&tex->ratio, sizeof(float), 1, fp);
+    fwrite(&tex->swizzled, sizeof(bool), 1, fp);
+    fwrite(tex->data, sizeof(g2dColor), tex->tw * tex->th, fp);
+    
+    fclose(fp);
+    return true;
+}
+
+#endif
+
+
+
 
 /* Blend functions */
 

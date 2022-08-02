@@ -82,6 +82,7 @@ extern "C" {
 #define USE_PNG
 //#define USE_JPEG
 #define USE_VFPU
+#define USE_TEX_OUTPUT
 
 /**
  * \def G2D_SCR_W
@@ -875,6 +876,13 @@ void g2dSetScissor(int x, int y, int w, int h);
 
 /* New additions */
 
+g2dTexture* g2dTexLoadSwizzled(char path[]);
+
+#ifdef USE_TEX_OUTPUT
+bool g2dTexSaveSwizzled(char path[], g2dTexture* tex);
+#endif
+
+
 void g2dSetTexture(g2dTexture* tex, int index);
 
 void g2dSetBlendMode(g2dBlend_Mode blendMode);
@@ -894,6 +902,9 @@ void g2dSetObjectRotation(g2dObject* object, float degrees);
 void g2dDrawObject(g2dObject* object, g2dTexture* texture);
 
 void g2dDrawObjects(g2dObject* object, int count, g2dTexture* texture);
+
+
+
 
 #ifdef __cplusplus
 }
