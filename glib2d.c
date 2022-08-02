@@ -1097,9 +1097,6 @@ void g2dSetCropWHRelative(int w, int h)
 
 void g2dResetTex()
 {
-    if (rctx.tex == NULL)
-        return;
-
     rctx.use_tex_repeat = false;
     rctx.use_tex_linear = true;
 }
@@ -1107,18 +1104,12 @@ void g2dResetTex()
 
 void g2dSetTexRepeat(bool use)
 {
-    if (rctx.tex == NULL)
-        return;
-
     rctx.use_tex_repeat = use;
 }
 
 
 void g2dSetTexLinear(bool use)
 {
-    if (rctx.tex == NULL)
-        return;
-
     rctx.use_tex_linear = use;
 }
 
@@ -1468,6 +1459,14 @@ void g2dInitObject(g2dObject* object)
     object->alpha = DEFAULT_ALPHA;
 }
 
+void g2dInitObjectTexture(g2dObject* object, g2dTexture* texture)
+{
+    g2dInitObject(object);
+    object->crop_w = object->scale_w = texture->w;
+    object->crop_h = object->scale_h = texture->h;
+}
+
+
 void g2dSetObjectRadians(g2dObject* object, float radians)
 {    
     _g2dSetObjectRotationRad(object, radians);
@@ -1544,8 +1543,8 @@ void _g2dDrawObjTriangles(g2dObject* objects, int objCount, bool useTexture, boo
     int v_obj_nbr = 6; // 2 tris
     int v_nbr;
     int v_coord_size = 3;
-    int v_tex_size = (rctx.tex != NULL ? 2 : 0);
-    int v_color_size = (rctx.use_vert_color ? 1 : 0);
+    int v_tex_size =   (useTexture ? 2 : 0);
+    int v_color_size = (useVertexColor ? 1 : 0);
     int v_size = v_tex_size * sizeof(short) +
         v_color_size * sizeof(g2dColor) +
         v_coord_size * sizeof(float);
@@ -1584,6 +1583,7 @@ void g2dDrawObjects(g2dObject* objects, int count, g2dTexture* texture, g2dBlend
     // Set render states
     sceGuColor(G2D_COL_WHITE);
     sceGuDisable(GU_DEPTH_TEST);
+    g2dSetBlendMode(blendMode);
     _g2dSetTextureState(texture, rctx.use_tex_linear, rctx.use_tex_repeat);
 
     // Draw

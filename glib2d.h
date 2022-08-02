@@ -80,8 +80,8 @@ extern "C" {
  * PSP_MAIN_THREAD_ATTR(THREAD_ATTR_USER | THREAD_ATTR_VFPU) to avoid crashes.
  */
 #define USE_PNG
-#define USE_JPEG
-//#define USE_VFPU
+//#define USE_JPEG
+#define USE_VFPU
 
 /**
  * \def G2D_SCR_W
@@ -874,6 +874,8 @@ void g2dGetBlendMode(g2dBlend_Mode* blendMode);
 void g2dResetBlendMode();
 
 void g2dInitObject(g2dObject* object);
+
+void g2dInitObjectTexture(g2dObject* object, g2dTexture* texture);
 
 void g2dSetObjectRadians(g2dObject* object, float radians);
 
