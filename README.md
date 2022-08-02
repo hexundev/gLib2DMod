@@ -1,6 +1,7 @@
 ## gLib2DExt
 
-Some functions to extend gLib2D, lets set a view matrix for scrolling and zooming.
+Some functions to extend gLib2D, lets you set a view matrix for scrolling and zooming.
+See sample02.
 Todo: Support perspective projection, better vertex handling and use different format for untextured.
 
 ## Changes to gLib2D
