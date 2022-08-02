@@ -3,7 +3,7 @@ This mod adds a couple of things and exposes some functions.
 ## Changes to glib2d
 
 - Added function to set blend modes
-- Renamed color enum values with GD2D_COL_ prefix
+- Renamed color enum values with G2D_COL_ prefix
 - Exposed a few functions
 - Exposed object struct and functions to draw them directly
 
