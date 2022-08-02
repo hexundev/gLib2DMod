@@ -157,6 +157,14 @@ extern "C" {
 */
 #define G2D_OBJECT_POOL_SIZE (128)
 
+#ifndef USE_VFPU
+#define G2D_SINCOSF sincosf
+#else
+#define G2D_SINCOSF g2dvfpuSincosf
+void g2dvfpuSincosf(float x, float* s, float* c);
+#endif
+
+
 /**
  * \enum g2dColors
  * \brief Colors enumeration.
@@ -867,6 +875,8 @@ void g2dSetScissor(int x, int y, int w, int h);
 
 /* New additions */
 
+void g2dSetTexture(g2dTexture* tex, int index);
+
 void g2dSetBlendMode(g2dBlend_Mode blendMode);
 
 void g2dGetBlendMode(g2dBlend_Mode* blendMode);
@@ -877,13 +887,13 @@ void g2dInitObject(g2dObject* object);
 
 void g2dInitObjectTexture(g2dObject* object, g2dTexture* texture);
 
-void g2dSetObjectRadians(g2dObject* object, float radians);
+void g2dSetObjectRotationRadians(g2dObject* object, float radians);
 
 void g2dSetObjectRotation(g2dObject* object, float degrees);
 
-void g2dDrawObject(g2dObject* object, g2dTexture* texture, g2dBlend_Mode blendMode);
+void g2dDrawObject(g2dObject* object, g2dTexture* texture);
 
-void g2dDrawObjects(g2dObject* object, int count, g2dTexture* texture, g2dBlend_Mode blendMode);
+void g2dDrawObjects(g2dObject* object, int count, g2dTexture* texture);
 
 #ifdef __cplusplus
 }

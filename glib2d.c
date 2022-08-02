@@ -205,7 +205,7 @@ void* _g2dSetVertex(void *vp, int i, float vx, float vy)
 
 
 #ifdef USE_VFPU
-void vfpu_sincosf(float x, float *s, float *c)
+void g2dvfpuSincosf(float x, float *s, float *c)
 {
     __asm__ volatile (
         "mtv    %2, s000\n"           // s000 = x
@@ -550,7 +550,7 @@ void _g2dEndPoints()
     sceGuDrawArray(v_prim, v_type, v_nbr, NULL, v);
 }
 
-void _g2dSetTextureState(g2dTexture* tex, bool useLinearFilter, bool useTexRepeat)
+void g2dSetTexture(g2dTexture* tex, int index)
 {
     if (tex == NULL)
     {
@@ -560,16 +560,24 @@ void _g2dSetTextureState(g2dTexture* tex, bool useLinearFilter, bool useTexRepea
     {
         sceGuEnable(GU_TEXTURE_2D);
 
+        // Load texture
+        sceGuTexMode(GU_PSM_8888, 0, 0, tex->swizzled);
+        sceGuTexImage(index, tex->tw, tex->th,
+            tex->tw, tex->data);
+    }
+}
+
+void _g2dSetTextureState(g2dTexture* tex, bool useLinearFilter, bool useTexRepeat)
+{
+    g2dSetTexture(tex, 0);
+
+    if (tex != NULL)
+    {
         if (useLinearFilter) sceGuTexFilter(GU_LINEAR, GU_LINEAR);
         else                 sceGuTexFilter(GU_NEAREST, GU_NEAREST);
 
         if (useTexRepeat)   sceGuTexWrap(GU_REPEAT, GU_REPEAT);
         else                sceGuTexWrap(GU_CLAMP, GU_CLAMP);
-
-        // Load texture
-        sceGuTexMode(GU_PSM_8888, 0, 0, tex->swizzled);
-        sceGuTexImage(0, tex->tw, tex->th,
-            tex->tw, tex->data);
     }
 }
 
@@ -983,7 +991,7 @@ void _g2dSetObjectRotationRad(g2dObject* obj, float radians)
     obj->rot_y = obj->y;
 
 #ifdef USE_VFPU
-    vfpu_sincosf(radians, &obj->rot_sin, &obj->rot_cos);
+    g2dvfpuSincosf(radians, &obj->rot_sin, &obj->rot_cos);
 #else
     sincosf(radians, &obj->rot_sin, &obj->rot_cos);
 #endif
@@ -1447,7 +1455,7 @@ void g2dInitObject(g2dObject* object)
     object->z = DEFAULT_Z;
     object->center_x = 0.0f;
     object->center_y = 0.0f;
-    object->rot_x = object->rot_y = 0; // Rotation center
+    object->rot_x = object->rot_y = 0;
     object->rot = 0.0f;
     object->rot_sin = 0.0f;
     object->rot_cos = 1.0f;
@@ -1466,8 +1474,7 @@ void g2dInitObjectTexture(g2dObject* object, g2dTexture* texture)
     object->crop_h = object->scale_h = texture->h;
 }
 
-
-void g2dSetObjectRadians(g2dObject* object, float radians)
+void g2dSetObjectRotationRadians(g2dObject* object, float radians)
 {    
     _g2dSetObjectRotationRad(object, radians);
 }
@@ -1477,9 +1484,9 @@ void g2dSetObjectRotation(g2dObject* object, float degrees)
     _g2dSetObjectRotationRad(object, degrees * M_PI_180);
 }
 
-void g2dDrawObject(g2dObject* object, g2dTexture* texture, g2dBlend_Mode blendMode)
+void g2dDrawObject(g2dObject* object, g2dTexture* texture)
 {
-    g2dDrawObjects(object, 1, texture, blendMode);
+    g2dDrawObjects(object, 1, texture);
 }
 
 #define OBJ_I_TRI objects[i]
@@ -1548,9 +1555,8 @@ void _g2dDrawObjTriangles(g2dObject* objects, int objCount, bool useTexture, boo
     int v_size = v_tex_size * sizeof(short) +
         v_color_size * sizeof(g2dColor) +
         v_coord_size * sizeof(float);
-    int v_type = GU_VERTEX_32BITF | GU_TRANSFORM_2D;
-    int i;
-
+    
+    int v_type = GU_VERTEX_32BITF | GU_TRANSFORM_2D;   
     if (useTexture)     v_type |= GU_TEXTURE_16BIT;
     if (useVertexColor) v_type |= GU_COLOR_8888;
 
@@ -1562,6 +1568,7 @@ void _g2dDrawObjTriangles(g2dObject* objects, int objCount, bool useTexture, boo
     void* vi = v;
 
     // Build the vertex list
+    int i;
     for (i = 0; i < objCount; i += 1)
     {
         // Two triangles per object       
@@ -1578,12 +1585,10 @@ void _g2dDrawObjTriangles(g2dObject* objects, int objCount, bool useTexture, boo
     sceGuDrawArray(v_prim, v_type, v_nbr, NULL, v);
 }
 
-void g2dDrawObjects(g2dObject* objects, int count, g2dTexture* texture, g2dBlend_Mode blendMode)
+void g2dDrawObjects(g2dObject* objects, int count, g2dTexture* texture)
 {
     // Set render states
-    sceGuColor(G2D_COL_WHITE);
-    sceGuDisable(GU_DEPTH_TEST);
-    g2dSetBlendMode(blendMode);
+    sceGuColor(G2D_COL_WHITE); // Using vertex color
     _g2dSetTextureState(texture, rctx.use_tex_linear, rctx.use_tex_repeat);
 
     // Draw
