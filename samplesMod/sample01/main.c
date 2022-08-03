@@ -1,4 +1,4 @@
-// Control object properties.
+// Different blend modes
 
 #include <pspkernel.h>
 #include <pspctrl.h>
@@ -55,7 +55,7 @@ int main()
 		g2dAdd();
 		g2dEnd();
 		
-		// Additiv blend
+		// Additive blend
 		g2dBeginRects(glowTex);
 		g2dSetBlendMode(G2D_BLEND_ADD);
 		if (glowTex == NULL) g2dSetColor(G2D_COL_RED);
