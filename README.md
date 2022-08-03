@@ -4,6 +4,8 @@ Some functions to extend gLib2D, lets you set a view matrix for scrolling and zo
 See sample02.
 Todo: Support perspective projection, better vertex handling and use different format for untextured.
 
+Same license as gLib2D.
+
 ## Changes to gLib2D
 
 - Added function to set blend modes
