@@ -252,6 +252,7 @@ typedef enum
     G2D_BLEND_NONE,
     G2D_BLEND_ALPHA, 
     G2D_BLEND_ADD,
+    G2D_BLEND_MUL,
 }
 g2dBlend_Mode;
 
@@ -492,7 +493,7 @@ g2dTexture* g2dTexLoad(void* data, int width, int height, g2dTex_Mode mode);
  * textures (useless on small textures), pass G2D_SWIZZLE to enable it.
  * Texture supported up to 512*512 in size only (hardware limitation).
  */
-g2dTexture* g2dTexLoadFile(char path[], g2dTex_Mode mode);
+g2dTexture* g2dTexLoadFile(const char* path, g2dTex_Mode mode);
 
 /**
  * \brief Resets the current coordinates.
@@ -890,7 +891,7 @@ void g2dSetScissor(int x, int y, int w, int h);
 
 /* New additions */
 
-g2dTexture* g2dTexLoadSwizzled(char path[]);
+g2dTexture* g2dTexLoadSwizzled(const char* path);
 
 #ifdef USE_TEX_OUTPUT
 bool g2dTexSaveSwizzled(char path[], g2dTexture* tex);

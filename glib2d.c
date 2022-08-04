@@ -25,6 +25,9 @@
 #include <vram.h>
 #include <malloc.h>
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #ifdef USE_PNG
 #include <png.h>
@@ -41,7 +44,7 @@
 #define PIXEL_SIZE              (4)
 #define FRAMEBUFFER_SIZE        (LINE_SIZE*G2D_SCR_H*PIXEL_SIZE)
 //#define MALLOC_STEP           (128) // It's a variable now
-#define TSTACK_MAX              (64)
+#define TSTACK_MAX              (16)
 #define SLICE_WIDTH             (64.f)
 #define M_180_PI                (57.29578f)
 #define M_PI_180                (0.017453292f)
@@ -98,8 +101,6 @@ typedef struct
 
 /* Local variables */
 
-static int* dlist;
-
 static RenderContext rctx;
 
 static Transform tstack[TSTACK_MAX];
@@ -114,6 +115,7 @@ static bool scissor = false;
 static float global_scale;
 
 static unsigned int MALLOC_STEP = G2D_OBJECT_POOL_SIZE;
+static unsigned int __attribute__((aligned(16))) dlist[DLIST_SIZE];
 
 /* Global variables */
 
@@ -142,7 +144,7 @@ void _g2dStart()
 	if (!init)
 		g2dInit();
 
-	sceKernelDcacheWritebackRange(dlist, DLIST_SIZE);
+	//sceKernelDcacheWritebackRange(dlist, DLIST_SIZE);
 	sceGuStart(GU_DIRECT, dlist);
 	start = true;
 }
@@ -232,7 +234,7 @@ void g2dInitWithPool(unsigned int objectPoolSize)
 		return;
 
 	// Display list allocation
-	dlist = malloc(DLIST_SIZE);
+	//dlist = malloc(DLIST_SIZE);
 
 	// Setup GU
 	sceGuInit();
@@ -282,7 +284,7 @@ void g2dTerm()
 
 	sceGuTerm();
 
-	free(dlist);
+	//free(dlist);
 
 	init = false;
 }
@@ -1207,7 +1209,7 @@ void g2dTexFree(g2dTexture** tex)
 
 
 #ifdef USE_PNG
-g2dTexture* _g2dTexLoadPNG(char path[], g2dTex_Mode mode)
+g2dTexture* _g2dTexLoadPNG(const char* path, g2dTex_Mode mode)
 {
 	FILE* fp = NULL;
 
@@ -1393,7 +1395,7 @@ error:
 	return NULL;
 }
 
-g2dTexture* g2dTexLoadFile(char path[], g2dTex_Mode mode)
+g2dTexture* g2dTexLoadFile(const char* path, g2dTex_Mode mode)
 {
 #ifdef USE_PNG
 	if (strstr(path, ".png"))
@@ -1432,7 +1434,7 @@ void g2dSetScissor(int x, int y, int w, int h)
 
 /* New additions */
 
-g2dTexture* g2dTexLoadSwizzled(char path[])
+g2dTexture* g2dTexLoadSwizzled(const char* path)
 {
 	g2dTexture* tex = NULL;
 	FILE* fp = NULL;
@@ -1515,6 +1517,11 @@ void g2dSetBlendMode(g2dBlend_Mode blendMode)
 	case G2D_BLEND_ADD:
 		sceGuEnable(GU_BLEND);
 		sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_FIX, 0, 0xFFFFFF);
+		break;
+
+	case G2D_BLEND_MUL:
+		sceGuEnable(GU_BLEND);
+		sceGuBlendFunc(GU_ADD, GU_DST_COLOR, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
 		break;
 
 	default:

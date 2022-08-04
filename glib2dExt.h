@@ -8,6 +8,10 @@
  * 
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Call before drawing
 void g2dExtBegin();
 
@@ -36,3 +40,8 @@ void g2dExtResetView();
 void g2dExtDrawObjects(g2dObject* objects, int count, g2dTexture* texture);
 
 void g2dExtDrawObject(g2dObject* object, g2dTexture* texture);
+
+
+#ifdef __cplusplus
+}
+#endif

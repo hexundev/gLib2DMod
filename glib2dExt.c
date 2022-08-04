@@ -3,6 +3,8 @@
 #include <pspgu.h>
 #include <pspgum.h>
 
+#include <string.h>
+
 const int COLOR_VERTEX_FORMAT = GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D;
 const int TEXTURE_VERTEX_FORMAT = GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D;
 const float PROJECTION_RATIO = 16.0f / 9.0f;
